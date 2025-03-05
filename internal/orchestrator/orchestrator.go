@@ -106,32 +106,7 @@ func GetTaskHandler(w http.ResponseWriter, r *http.Request){
 	json.NewEncoder(w).Encode(map[string]*structs.Task{"task":task})
 }
 
-func ResultTaskHandler1(w http.ResponseWriter, r *http.Request){
-	var res structs.Result
-	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&res)
-	if err != nil{
-		http.Error(w, "expression is not valid", http.StatusUnprocessableEntity)
-		return
-	}
-	found := false
-	for _, expr := range expressions{
-		if task.UpdateTask(expr, res.ID, res.Result){
-			found = true
-			if expr.Root.Computed{
-				expr.Status = "done"
-				expr.Result = expr.Root.Value
-			}
-		}
-	}
-	if !found{
-		http.Error(w, "result is not found", http.StatusNotFound)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-}
+
 func ResultTaskHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var result structs.Result
