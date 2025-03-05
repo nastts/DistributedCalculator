@@ -34,20 +34,21 @@ func  IDhandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	id := structs.GetID()
-	res, err := calculation.Calc(req.Expression)
+	//res, err := calculation.Calc(req.Expression)
+	root, err := calculation.ParseExpression(req.Expression)
 	if err != nil{
 		http.Error(w, "expression is not valid", http.StatusUnprocessableEntity)
 		return
 	}
 	expr := &structs.ExpressionID{
 		ID: id,
-		Status: "in progress",
-		Result: res,
+		Status: "pending",
+		Root: root,
 	}
 	expressions[id] = expr
 	task.GetTask(expr.Root, expr.ID)
 	if len(structs.TasksQueue) >0 {
-		expr.Status = "done"
+		expr.Status = "in progress"
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -105,7 +106,7 @@ func GetTaskHandler(w http.ResponseWriter, r *http.Request){
 	json.NewEncoder(w).Encode(map[string]*structs.Task{"task":task})
 }
 
-func ResultTaskHandler(w http.ResponseWriter, r *http.Request){
+func ResultTaskHandler1(w http.ResponseWriter, r *http.Request){
 	var res structs.Result
 	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&res)
@@ -130,4 +131,38 @@ func ResultTaskHandler(w http.ResponseWriter, r *http.Request){
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+func ResultTaskHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var result structs.Result
+	err := json.NewDecoder(r.Body).Decode(&result)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusUnprocessableEntity)
+		return
+	}
+
+	expr, found := expressions[result.ID]
+	if !found {
+		http.Error(w, "expression ID not found", http.StatusNotFound)
+		return
+	}
+
+	updated := task.UpdateTask(expr, result.ID, result.Result)
+	if !updated {
+		http.Error(w, "task ID not found or already computed", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if expr.Root.Computed {
+		expr.Status = "done"
+	}
+
+	task.SolveTask(expr.Root, expr.ID)
+	if len(structs.TasksQueue) > 0 {
+		expr.Status = "in progress"
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": expr.Status})
 }
