@@ -34,21 +34,21 @@ func  IDhandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	id := structs.GetID()
-	//res, err := calculation.Calc(req.Expression)
-	root, err := calculation.ParseExpression(req.Expression)
+	res, err := calculation.Calc(req.Expression)
+	//root, err := calculation.ParseExpression(req.Expression)
 	if err != nil{
 		http.Error(w, "expression is not valid", http.StatusUnprocessableEntity)
 		return
 	}
 	expr := &structs.ExpressionID{
 		ID: id,
-		Status: "pending",
-		Root: root,
+		Status: "in process",
+		Result: res,
 	}
 	expressions[id] = expr
 	task.GetTask(expr.Root, expr.ID)
 	if len(structs.TasksQueue) >0 {
-		expr.Status = "in progress"
+		expr.Status = "done"
 	}
 
 	w.WriteHeader(http.StatusOK)
